@@ -33,6 +33,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV HOST_BIND=0.0.0.0
 
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
@@ -40,6 +41,16 @@ COPY --from=build --chown=node:node /app/shared ./shared
 COPY --from=build --chown=node:node /app/server/package.json ./server/package.json
 COPY --from=build --chown=node:node /app/server/dist ./server/dist
 COPY --from=build --chown=node:node /app/client/dist ./client/dist
+
+# حقن ملف الـ .env بصلاحيات الـ root جوه فولدر الـ dist وفولدر السيرفر الرئيسي لضمان القراءة
+USER root
+RUN echo "ENCRYPTION_KEY=72e20b02afefdd77d13489824939ebea43f8ba46d1d4076113cc9e6b42d64372" > /app/server/dist/.env && \
+    echo "PORT=3001" >> /app/server/dist/.env && \
+    echo "HOST_BIND=0.0.0.0" >> /app/server/dist/.env && \
+    echo "REQUEST_ANALYTICS_RETENTION_DAYS=90" >> /app/server/dist/.env && \
+    echo "REQUEST_ANALYTICS_MAX_ROWS=100000" >> /app/server/dist/.env && \
+    cp /app/server/dist/.env /app/server/.env && \
+    chown -R node:node /app/server/dist/.env /app/server/.env
 
 RUN mkdir -p /app/server/data && chown -R node:node /app/server/data
 
