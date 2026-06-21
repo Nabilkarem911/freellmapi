@@ -5,10 +5,6 @@ ARG NODE_IMAGE=node:20-bookworm-slim
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 
-# better-sqlite3 is a native module; on slim images without a usable prebuilt
-# binary (notably the linux/arm64 leg under QEMU) it compiles from source via
-# node-gyp, which needs Python + a C++ toolchain. These live only in the build
-# stages — the runtime image copies the already-compiled node_modules.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
@@ -31,13 +27,8 @@ RUN npm prune --omit=dev
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
 
-# حقن المتغيرات كـ Environment Variables أساسية للنظام جوه الحاوية
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV HOST_BIND=0.0.0.0
-ENV ENCRYPTION_KEY=72e20b02afefdd77d13489824939ebea43f8ba46d1d4076113cc9e6b42d64372
-ENV REQUEST_ANALYTICS_RETENTION_DAYS=90
-ENV REQUEST_ANALYTICS_MAX_ROWS=100000
 
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
@@ -56,5 +47,4 @@ VOLUME ["/app/server/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3001) + '/api/ping').then((res) => { if (!res.ok) process.exit(1); }).catch(() => process.exit(1));"
 
-# الحل القاضي: تمرير المتغيرات مباشرة للأمر غصب عن أي أداة قراءة ملفات
-CMD ["sh", "-c", "ENCRYPTION_KEY=72e20b02afefdd77d13489824939ebea43f8ba46d1d4076113cc9e6b42d64372 PORT=3001 HOST_BIND=0.0.0.0 REQUEST_ANALYTICS_RETENTION_DAYS=90 REQUEST_ANALYTICS_MAX_ROWS=100000 node server/dist/index.js"]
+CMD ["node", "server/dist/index.js"]
